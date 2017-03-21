@@ -1,7 +1,8 @@
-import json
-import urllib.request
 import os
 import sys
+import json
+import urllib.error
+import urllib.request
 
 
 # Computing command
@@ -22,7 +23,7 @@ class Post:
         url = "http://i.4cdn.org/" + self.thread.board + "/" + self.file
         try:
             urllib.request.urlretrieve(url, filename)
-        except:
+        except urllib.error.HTTPError:
             log("Error downloading " + url + " at " + filename)
 
 
@@ -35,9 +36,9 @@ class Thread:
         self.posts = {}
 
         if len(self.title) > 0:
-            self.folder = self.board + "/" + self.id + " - " + self.title.replace("/","").replace("<","")\
-                .replace(">","").replace(":","").replace('"',"").replace("\\","").replace("|","").replace("?","")\
-                .replace("*","")
+            self.folder = self.board + "/" + self.id + " - " + self.title.replace("/", "").replace("<", "")\
+                .replace(">", "").replace(":", "").replace('"', "").replace("\\", "").replace("|", "").replace("?", "")\
+                .replace("*", "")
         else:
             self.folder = self.board + "/" + self.id
 
@@ -70,7 +71,7 @@ class Thread:
         counter = 0
         average_score = get_average_score(self.posts)
         posts_list = list(self.posts.values())
-        posts_list.sort(key = lambda x: -x.score)
+        posts_list.sort(key=lambda x: -x.score)
         i = 0
         while i < len(posts_list) and (i < max_post or max_post <= 0):
             post = posts_list[i]
@@ -122,7 +123,7 @@ def get_average_score(posts):
     return s / len(posts.values())
 
 
-def compute_board(board, max_thread = 0, max_post = 0):
+def compute_board(board, max_thread=0, max_post=0):
     print("\n===   BOARD " + board + "   ===\n")
     i, threads = 0, get_threads(board)
     while i < len(threads) and (i < max_thread or max_thread == 0):
@@ -133,13 +134,13 @@ def compute_board(board, max_thread = 0, max_post = 0):
 
 
 def log(msg):
-    global file
-    file.write(msg)
+    global log_file
+    log_file.write(msg)
     print("\n"+msg)
 
 
-log_file = "log.txt"
-file = open(log_file,"w")
+log_filename = "log.txt"
+log_file = open(log_filename, "w")
 
 a = 1
 arg_board, arg_max_threads, arg_max_posts = "", 0, -1
@@ -168,8 +169,5 @@ if len(sys.argv) > 1:
 else:
     print("At least one argument required. Try --help for more info.")
 
-file.close()
-os.remove(log_file)
-
-
-
+log_file.close()
+os.remove(log_filename)
