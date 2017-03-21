@@ -10,17 +10,31 @@ import urllib.request
 
 
 class Post:
-    def __init__(self, thread, file=""):
-        self.score = 0
-        self.file = file
+    def __init__(self, thread, no, now, name, com, filename, ext, fsize, w, h, tim):
         self.thread = thread
 
-    def up(self):
-        self.score += 1
+        self.no = no
+        self.now = now
+        self.name = name
+        self.com = com
+        self.filename = filename
+        self.ext = ext
+        self.fsize = fsize
+        self.w = w
+        self.h = h
+        self.tim = tim
+
+        self.replies = 0
+
+    def add_reply(self):
+        self.replies += 1
+
+    def get_score(self):
+        return self.replies
 
     def download(self):
-        filename = self.thread.folder + "/" + self.file
-        url = "http://i.4cdn.org/" + self.thread.board + "/" + self.file
+        filename = self.thread.folder + "/" + self.tim + self.ext
+        url = "http://i.4cdn.org/" + self.thread.board + "/" + self.tim + self.ext
         try:
             urllib.request.urlretrieve(url, filename)
         except urllib.error.HTTPError:
@@ -59,15 +73,38 @@ class Thread:
         for post in data["posts"]:
             counter += 1
             print("\rReading posts... " + str((100*counter)//self.replies) + "%", end="")
-            post_id = str(post["no"])
-            if "filename" in post and (len(extension) == 0 or post["ext"] == extension):
-                self.posts[post_id] = Post(self, str(post["tim"]) + post["ext"])
+
+            no, now, name, com, filename, ext, fsize, w, h, tim = "", "", "", "", "", "", 0, 0, 0, ""
+            if "no" in post:
+                no = str(post["no"])
+            if "now" in post:
+                now = str(post["now"])
+            if "name" in post:
+                name = str(post["name"])
             if "com" in post:
+                com = str(post["com"])
+            if "filename" in post:
+                filename = str(post["filename"])
+            if "ext" in post:
+                ext = str(post["ext"])
+            if "fsize" in post:
+                fsize = int(post["fsize"])
+            if "w" in post:
+                w = int(post["w"])
+            if "h" in post:
+                h = int(post["h"])
+            if "tim" in post:
+                tim = str(post["tim"])
+
+            if len(filename) > 0 and (len(extension) == 0 or ext == extension):
+                self.posts[no] = Post(self, no, now, name, com, filename, ext, fsize, w, h, tim)
+
+            if len(com) > 0:
                 for link in post["com"].split('href="'):
                     if link[:2] == "#p":
                         reply_id = link[2:9]
                         if reply_id in self.posts:
-                            self.posts[reply_id].up()
+                            self.posts[reply_id].add_reply()
 
         self.average_score = get_average_score(self.posts)
 
@@ -77,7 +114,7 @@ class Thread:
         processed, downloaded = 0, 0  # counters
 
         posts_list = list(self.posts.values())
-        posts_list.sort(key=lambda x: -x.score)
+        posts_list.sort(key=lambda x: -x.get_score())
         i = 0
 
         while i < len(posts_list) and (i < max_post or max_post <= 0):
@@ -86,7 +123,7 @@ class Thread:
 
             print("\rDownloading files... " + str((100 * processed) // len(self.posts)) + "%", end="")
 
-            if post.score > self.average_score or max_post >= 0:
+            if post.get_score() > self.average_score or max_post >= 0:
                 downloaded += 1
                 if downloaded == 1 and not os.path.exists(self.folder):
                     os.makedirs(self.folder)
@@ -143,7 +180,7 @@ def get_average_score(posts):
         return 0
     s = 0
     for key in posts.keys():
-        s += posts[key].score
+        s += posts[key].get_score()
     return s / len(posts.values())
 
 
@@ -166,7 +203,7 @@ def log(msg):
 log_filename = "log.txt"
 log_file = open(log_filename, "w")
 
-sys.argv = ["4crawl", "wg", "-t", "3"]
+sys.argv = ["4crawl", "wg", "-t", "5", "-p", "5"]
 a = 1
 arg_board, arg_max_threads, arg_max_posts, arg_extension = "", 0, -1, ""
 skip_compute = False
