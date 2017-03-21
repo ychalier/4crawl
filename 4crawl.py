@@ -33,6 +33,7 @@ class Thread:
         self.title = thread_title
         self.board = board
         self.number_of_posts = number_of_posts
+        self.average_score = -1
         self.posts = {}
 
         if len(self.title) > 0:
@@ -62,25 +63,33 @@ class Thread:
                         reply_id = link[2:9]
                         if reply_id in self.posts:
                             self.posts[reply_id].up()
-        print("\rReading posts... 100%")
+
+        self.average_score = get_average_score(self.posts)
+
+        log(str(len(self.posts)) + " relevant posts found, avg score: " + str(self.average_score)[:4])
 
     def get_files(self, max_post):
-        if not os.path.exists(self.folder):
-            os.makedirs(self.folder)
+        processed, downloaded = 0, 0  # counters
 
-        counter = 0
-        average_score = get_average_score(self.posts)
         posts_list = list(self.posts.values())
         posts_list.sort(key=lambda x: -x.score)
         i = 0
+
         while i < len(posts_list) and (i < max_post or max_post <= 0):
             post = posts_list[i]
-            counter += 1
-            print("\rDownloading files... " + str((100 * counter) // len(self.posts)) + "%", end="")
-            if post.score > average_score or max_post >= 0:
+            processed += 1
+
+            print("\rDownloading files... " + str((100 * processed) // len(self.posts)) + "%", end="")
+
+            if post.score > self.average_score or max_post >= 0:
+                downloaded += 1
+                if downloaded == 1 and not os.path.exists(self.folder):
+                    os.makedirs(self.folder)
                 post.download()
+
             i += 1
-        print("\rDownloading files... 100%")
+
+        log(str(downloaded) + " files downloaded.")
 
 
 def get_response(url):
@@ -127,7 +136,7 @@ def compute_board(board, max_thread=0, max_post=0, extension=""):
     print("\n===   BOARD " + board + "   ===\n")
     i, threads = 0, get_threads(board)
     while i < len(threads) and (i < max_thread or max_thread == 0):
-        print("\nThread " + threads[i].id + ": " + threads[i].title)
+        log("Thread " + threads[i].id + ": " + threads[i].title)
         threads[i].get_posts(extension)
         threads[i].get_files(max_post)
         i += 1
@@ -135,14 +144,14 @@ def compute_board(board, max_thread=0, max_post=0, extension=""):
 
 def log(msg):
     global log_file
-    log_file.write(msg)
+    log_file.write(msg+"\n")
     print("\n"+msg)
 
 
 log_filename = "log.txt"
 log_file = open(log_filename, "w")
 
-sys.argv = ["4crawl", "wg", "-e", ".jpg", "-p", "0"]
+sys.argv = ["4crawl", "wg", "-t", "3"]
 a = 1
 arg_board, arg_max_threads, arg_max_posts, arg_extension = "", 0, -1, ""
 skip_compute = False
