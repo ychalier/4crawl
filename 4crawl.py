@@ -65,7 +65,7 @@ class Thread:
     def __repr__(self):
         return self.no + ". " + self.sub
 
-    def get_posts(self, extension):
+    def get_posts(self, args):
         res = get_response("http://a.4cdn.org/" + self.board + "/thread/" + self.no + ".json")
         data = json.loads(res)
 
@@ -96,7 +96,7 @@ class Thread:
             if "tim" in post:
                 tim = str(post["tim"])
 
-            if len(filename) > 0 and (len(extension) == 0 or ext == extension):
+            if len(filename) > 0 and (len(args["extensions"]) == 0 or ext in args["extensions"]):
                 self.posts[no] = Post(self, no, now, name, com, filename, ext, fsize, w, h, tim)
 
             if len(com) > 0:
@@ -110,20 +110,20 @@ class Thread:
 
         log(str(len(self.posts)) + " relevant posts found, avg score: " + str(self.average_score)[:4])
 
-    def get_files(self, max_post):
+    def get_files(self, args):
         processed, downloaded = 0, 0  # counters
 
         posts_list = list(self.posts.values())
         posts_list.sort(key=lambda x: -x.get_score())
         i = 0
 
-        while i < len(posts_list) and (i < max_post or max_post <= 0):
+        while i < len(posts_list) and (i < args["max-posts"] or args["max-posts"] <= 0):
             post = posts_list[i]
             processed += 1
 
             print("\rDownloading files... " + str((100 * processed) // len(self.posts)) + "%", end="")
 
-            if post.get_score() > self.average_score or max_post >= 0:
+            if post.get_score() > self.average_score or args["max-posts"] >= 0:
                 downloaded += 1
                 if downloaded == 1 and not os.path.exists(self.folder):
                     os.makedirs(self.folder)
@@ -140,19 +140,19 @@ def get_response(url):
     return response.read().decode('utf-8')
 
 
-def get_threads(board):
+def get_threads(board, args):
     print("Fetching threads: getting catalog...", end="")
 
     res = get_response("http://a.4cdn.org/"+board+"/catalog.json")
     data = json.loads(res)
 
-    counter = 0
+    processed, added = 0, 0
     threads = []
 
     for page in data:
         for thread in page["threads"]:
-            counter += 1
-            print("\rFetching threads: reading thread " + str(counter) + "/40", end="")
+            processed += 1
+            print("\rFetching threads: reading thread " + str(processed) + "/149", end="")
             no, now, name, sub, com, replies, images = "", "", "", "", "", 1, 0
             if "no" in thread:
                 no = thread["no"]
@@ -168,9 +168,17 @@ def get_threads(board):
                 replies = thread["replies"]+1
             if "images" in thread:
                 images = thread["images"]
-            threads.append(Thread(board, no, now, name, sub, com, replies, images))
+            if "sticky" not in thread or not args["omit-sticky"]:
+                threads.append(Thread(board, no, now, name, sub, com, replies, images))
+                added += 1
 
-    print("\rFetching threads: done.")
+            if added >= args["max-threads"] > 0:
+                break
+
+        if added >= args["max-threads"] > 0:
+            break
+
+
 
     return threads
 
@@ -184,14 +192,95 @@ def get_average_score(posts):
     return s / len(posts.values())
 
 
-def compute_board(board, max_thread=0, max_post=0, extension=""):
-    print("\n===   BOARD " + board + "   ===\n")
-    i, threads = 0, get_threads(board)
-    while i < len(threads) and (i < max_thread or max_thread == 0):
-        log("Thread " + threads[i].no + ": " + threads[i].sub)
-        threads[i].get_posts(extension)
-        threads[i].get_files(max_post)
-        i += 1
+def compute_boards(args):
+    for board in args["boards"]:
+        print("\n===   BOARD " + board + "   ===\n")
+        i, threads = 0, get_threads(board, args)
+        print("\r" + str(len(threads)) + " threads fetched.")
+        while i < len(threads) and (i < args["max-threads"] or args["max-threads"] == 0):
+            log("Thread " + threads[i].no + ": " + threads[i].sub)
+            threads[i].get_posts(args)
+            threads[i].get_files(args)
+            i += 1
+
+
+def compute_argv(argv):
+    args = {"boards": [], "max-threads": 0, "max-posts": -1, "extensions": [], "log_filename": "log.txt",
+            "omit-sticky": False}
+    a = 1
+    while a < len(argv):
+
+        if argv[a] in ["--boards", "-b"]:
+            while a + 1 < len(argv) and argv[a + 1][:1] != "-":
+                temp_board = argv[a + 1]
+                if temp_board in BOARDS:
+                    args["boards"].append(temp_board)
+                else:
+                    print(temp_board + " is not a valid board.")
+                    exit(0)
+                a += 1
+            if len(args["boards"]) == 0:
+                print("At least one board must be specified.")
+                exit(0)
+
+        elif argv[a] in ["--extensions", "-e"]:
+            while a + 1 < len(argv) and argv[a + 1][:1] != "-":
+                temp_ext = argv[a + 1]
+                if temp_ext[:1] == ".":
+                    args["extensions"].append(temp_ext)
+                else:
+                    args["extensions"].append("." + temp_ext)
+                a += 1
+            if len(args["extensions"]) == 0:
+                print("At least one extension must be specified.")
+                exit(0)
+
+        elif argv[a] in ["--max-threads", "-t"]:
+            if a + 1 < len(argv):
+                temp_int = int(argv[a + 1])
+                if temp_int > 0:
+                    args["max-threads"] = temp_int
+                else:
+                    print("Number of threads must be strictly positive.")
+                    exit(0)
+            else:
+                print("A number of threads must be specified.")
+                exit(0)
+            a += 1
+
+        elif argv[a] in ["--max-posts", "-p"]:
+            if a + 1 < len(argv):
+                temp_int = int(argv[a + 1])
+                if temp_int >= 0:
+                    args["max-posts"] = temp_int
+                else:
+                    print("Number of posts must be positive.")
+                    exit(0)
+            else:
+                print("A number of posts must be specified.")
+                exit(0)
+            a += 1
+
+        elif argv[a] in ["--omit-sticky", "-os"]:
+            args["omit-sticky"] = True
+
+        a += 1
+
+    if len(args["boards"]) == 0:
+        print("\nUSAGE:\n"
+              "    4crawl [parameters]\n\n"
+              "    parameters\n"
+              "      --boards         A |  -b | abreviation of desired boards\n"
+              "      --max-threads    X |  -t | number of threads to compute (0 means all)\n"
+              "      --max-posts      X |  -p | download the first X top score files (0 means all)\n"
+              "      --extension   .ABC |  -e | select only certain types of files\n"
+              "      --omit-sticky      | -os | omit sticky threads\n")
+    else:
+        global log_file
+        log_file = open(args["log_filename"], "w")
+        compute_boards(args)
+        log_file.close()
+        os.remove(args["log_filename"])
 
 
 def log(msg):
@@ -200,40 +289,11 @@ def log(msg):
     print("\n"+msg)
 
 
-log_filename = "log.txt"
-log_file = open(log_filename, "w")
+BOARDS = ["a", "b", "c", "d", "e", "f", "g", "gif", "h", "hr", "k", "m", "o", "p", "r", "s", "t", "u", "v", "vg", "vr",
+          "w", "wg", "i", "ic", "r9k", "s4s", "vip", "cm", "hm", "lgbt", "y", "3", "aco", "adv", "an", "asp", "biz",
+          "cgl", "ck", "co", "diy", "fa", "fit", "gd", "hc", "his", "int", "jp", "lit", "mlp", "mu", "n", "news", "out",
+          "po", "pol", "qst", "sci", "soc", "sp", "tg", "toy", "trv", "tv", "vp", "wsg", "wsr", "x"]
+log_file = None
 
-sys.argv = ["4crawl", "wg", "-t", "5", "-p", "5"]
-a = 1
-arg_board, arg_max_threads, arg_max_posts, arg_extension = "", 0, -1, ""
-skip_compute = False
-if len(sys.argv) > 1:
-    while a < len(sys.argv):
-        if sys.argv[a] in ["--help", "-h"]:
-            print("\nUSAGE:\n"
-                  "    4crawl board [parameters]\n\n"
-                  "    board                    abreviation of desired board\n\n"
-                  "    parameters\n"
-                  "      --max-threads    X | -t | number of threads to compute (0 means all)\n"
-                  "      --sort-posts     X | -p | download the first X top score files (0 means all)\n"
-                  "      --extension   .ABC | -e | select only one type of files\n")
-            skip_compute = True
-        elif sys.argv[a] in ["--max-threads", "-t"]:
-            arg_max_threads = int(sys.argv[a+1])
-            a += 1
-        elif sys.argv[a] in ["--sort-posts", "-p"]:
-            arg_max_posts = int(sys.argv[a+1])
-            a += 1
-        elif sys.argv[a] in ["--extension", "-e"]:
-            arg_extension = sys.argv[a+1]
-            a += 1
-        else:
-            arg_board = sys.argv[a]
-        a += 1
-    if not skip_compute:
-        compute_board(arg_board, arg_max_threads, arg_max_posts, arg_extension)
-else:
-    print("At least one argument required. Try --help for more info.")
+compute_argv(["4crawl", "-b", "wsg", "-e", "gif", "webm"])
 
-log_file.close()
-os.remove(log_filename)
