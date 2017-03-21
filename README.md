@@ -16,6 +16,8 @@ Extended | Concise | Argument | Description
 `--max-threads` | `-t` | `X` | number of threads to compute (0 for all)
 `--max-posts` | `-p` | `X` | download the first `X` top score files (0 for all)
 `--extension` | `-e` | `.ext1 .ext2 ...` | select only certain types of files
+`--match-thread` | `-mt` | `string` | select threads that match (title or description) a string
+`--match-post` | `-mp` | `string` | select posts that match (description) a string
 `--omit-sticky` | `-os` | | omit sticky threads when fetching threads
 
 ### log
