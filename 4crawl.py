@@ -28,32 +28,37 @@ class Post:
 
 
 class Thread:
-    def __init__(self, board, thread_id, thread_title, number_of_posts):
-        self.id = str(thread_id)
-        self.title = thread_title
-        self.board = board
-        self.number_of_posts = number_of_posts
+    def __init__(self, board, no, now, name, sub, com, replies, images):
+        self.board = str(board)
+        self.no = str(no)
+        self.now = str(now)
+        self.name = str(name)
+        self.sub = str(sub)
+        self.com = str(com)
+        self.replies = int(replies)
+        self.images = int(images)
+
         self.average_score = -1
         self.posts = {}
 
-        if len(self.title) > 0:
-            self.folder = self.board + "/" + self.id + " - " + self.title.replace("/", "").replace("<", "")\
+        if len(self.sub) > 0:
+            self.folder = self.board + "/" + self.no + " - " + self.sub.replace("/", "").replace("<", "")\
                 .replace(">", "").replace(":", "").replace('"', "").replace("\\", "").replace("|", "").replace("?", "")\
                 .replace("*", "")
         else:
-            self.folder = self.board + "/" + self.id
+            self.folder = self.board + "/" + self.no
 
     def __repr__(self):
-        return self.id + ". " + self.title
+        return self.no + ". " + self.sub
 
     def get_posts(self, extension):
-        res = get_response("http://a.4cdn.org/" + self.board + "/thread/" + self.id + ".json")
+        res = get_response("http://a.4cdn.org/" + self.board + "/thread/" + self.no + ".json")
         data = json.loads(res)
 
         counter = 0
         for post in data["posts"]:
             counter += 1
-            print("\rReading posts... " + str((100*counter)//self.number_of_posts) + "%", end="")
+            print("\rReading posts... " + str((100*counter)//self.replies) + "%", end="")
             post_id = str(post["no"])
             if "filename" in post and (len(extension) == 0 or post["ext"] == extension):
                 self.posts[post_id] = Post(self, str(post["tim"]) + post["ext"])
@@ -111,12 +116,22 @@ def get_threads(board):
         for thread in page["threads"]:
             counter += 1
             print("\rFetching threads: reading thread " + str(counter) + "/40", end="")
-            thread_id, thread_title = "", ""
-            if "sub" in thread:
-                thread_title = thread["sub"]
+            no, now, name, sub, com, replies, images = "", "", "", "", "", 1, 0
             if "no" in thread:
-                thread_id = thread["no"]
-            threads.append(Thread(board, thread_id, thread_title, thread["replies"]+1))
+                no = thread["no"]
+            if "now" in thread:
+                now = thread["now"]
+            if "name" in thread:
+                name = thread["name"]
+            if "sub" in thread:
+                sub = thread["sub"]
+            if "com" in thread:
+                com = thread["com"]
+            if "replies" in thread:
+                replies = thread["replies"]+1
+            if "images" in thread:
+                images = thread["images"]
+            threads.append(Thread(board, no, now, name, sub, com, replies, images))
 
     print("\rFetching threads: done.")
 
@@ -136,7 +151,7 @@ def compute_board(board, max_thread=0, max_post=0, extension=""):
     print("\n===   BOARD " + board + "   ===\n")
     i, threads = 0, get_threads(board)
     while i < len(threads) and (i < max_thread or max_thread == 0):
-        log("Thread " + threads[i].id + ": " + threads[i].title)
+        log("Thread " + threads[i].no + ": " + threads[i].sub)
         threads[i].get_posts(extension)
         threads[i].get_files(max_post)
         i += 1
