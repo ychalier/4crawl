@@ -5,10 +5,6 @@ import urllib.error
 import urllib.request
 
 
-# Computing command
-# C:\Users\yohan\AppData\Local\Programs\Python\Python35\Scripts\pyinstaller --onefile json-crawler.py
-
-
 class Post:
     def __init__(self, thread, no, now, name, com, filename, ext, fsize, w, h, tim):
         self.thread = thread
@@ -314,5 +310,5 @@ BOARDS = ["a", "b", "c", "d", "e", "f", "g", "gif", "h", "hr", "k", "m", "o", "p
           "po", "pol", "qst", "sci", "soc", "sp", "tg", "toy", "trv", "tv", "vp", "wsg", "wsr", "x"]
 log_file = None
 
-compute_argv(["4crawl", "-b", "wg", "-t", "10", "-os", "-p", "10", "-mt", "screen", "-mp", "wall"])
+compute_argv(sys.argv)
 
