@@ -45,7 +45,7 @@ class Thread:
     def __repr__(self):
         return self.id + ". " + self.title
 
-    def get_posts(self):
+    def get_posts(self, extension):
         res = get_response("http://a.4cdn.org/" + self.board + "/thread/" + self.id + ".json")
         data = json.loads(res)
 
@@ -54,7 +54,7 @@ class Thread:
             counter += 1
             print("\rReading posts... " + str((100*counter)//self.number_of_posts) + "%", end="")
             post_id = str(post["no"])
-            if "filename" in post:
+            if "filename" in post and (len(extension) == 0 or post["ext"] == extension):
                 self.posts[post_id] = Post(self, str(post["tim"]) + post["ext"])
             if "com" in post:
                 for link in post["com"].split('href="'):
@@ -123,12 +123,12 @@ def get_average_score(posts):
     return s / len(posts.values())
 
 
-def compute_board(board, max_thread=0, max_post=0):
+def compute_board(board, max_thread=0, max_post=0, extension=""):
     print("\n===   BOARD " + board + "   ===\n")
     i, threads = 0, get_threads(board)
     while i < len(threads) and (i < max_thread or max_thread == 0):
         print("\nThread " + threads[i].id + ": " + threads[i].title)
-        threads[i].get_posts()
+        threads[i].get_posts(extension)
         threads[i].get_files(max_post)
         i += 1
 
@@ -142,8 +142,9 @@ def log(msg):
 log_filename = "log.txt"
 log_file = open(log_filename, "w")
 
+sys.argv = ["4crawl", "wg", "-e", ".jpg", "-p", "0"]
 a = 1
-arg_board, arg_max_threads, arg_max_posts = "", 0, -1
+arg_board, arg_max_threads, arg_max_posts, arg_extension = "", 0, -1, ""
 skip_compute = False
 if len(sys.argv) > 1:
     while a < len(sys.argv):
@@ -152,8 +153,9 @@ if len(sys.argv) > 1:
                   "    4crawl board [parameters]\n\n"
                   "    board                    abreviation of desired board\n\n"
                   "    parameters\n"
-                  "      --max-threads X | -t | number of threads to compute (0 means all)\n"
-                  "      --sort-posts  X | -p | download the first X top score files (0 means all)\n")
+                  "      --max-threads    X | -t | number of threads to compute (0 means all)\n"
+                  "      --sort-posts     X | -p | download the first X top score files (0 means all)\n"
+                  "      --extension   .ABC | -e | select only one type of files\n")
             skip_compute = True
         elif sys.argv[a] in ["--max-threads", "-t"]:
             arg_max_threads = int(sys.argv[a+1])
@@ -161,11 +163,14 @@ if len(sys.argv) > 1:
         elif sys.argv[a] in ["--sort-posts", "-p"]:
             arg_max_posts = int(sys.argv[a+1])
             a += 1
+        elif sys.argv[a] in ["--extension", "-e"]:
+            arg_extension = sys.argv[a+1]
+            a += 1
         else:
             arg_board = sys.argv[a]
         a += 1
     if not skip_compute:
-        compute_board(arg_board, arg_max_threads, arg_max_posts)
+        compute_board(arg_board, arg_max_threads, arg_max_posts, arg_extension)
 else:
     print("At least one argument required. Try --help for more info.")
 
