@@ -96,7 +96,9 @@ class Thread:
             if "tim" in post:
                 tim = str(post["tim"])
 
-            if len(filename) > 0 and (len(args["extensions"]) == 0 or ext in args["extensions"]):
+            if len(filename) > 0 \
+                    and (len(args["extensions"]) == 0 or ext in args["extensions"])\
+                    and (len(args["match-post"]) == 0 or args["match-post"] in com):
                 self.posts[no] = Post(self, no, now, name, com, filename, ext, fsize, w, h, tim)
 
             if len(com) > 0:
@@ -168,7 +170,8 @@ def get_threads(board, args):
                 replies = thread["replies"]+1
             if "images" in thread:
                 images = thread["images"]
-            if "sticky" not in thread or not args["omit-sticky"]:
+            if ("sticky" not in thread or not args["omit-sticky"]) \
+                    and (len(args["match-thread"]) == 0 or args["match-thread"] in sub+com):
                 threads.append(Thread(board, no, now, name, sub, com, replies, images))
                 added += 1
 
@@ -177,8 +180,6 @@ def get_threads(board, args):
 
         if added >= args["max-threads"] > 0:
             break
-
-
 
     return threads
 
@@ -206,7 +207,7 @@ def compute_boards(args):
 
 def compute_argv(argv):
     args = {"boards": [], "max-threads": 0, "max-posts": -1, "extensions": [], "log_filename": "log.txt",
-            "omit-sticky": False}
+            "omit-sticky": False, "match-thread": "", "match-post": ""}
     a = 1
     while a < len(argv):
 
@@ -261,6 +262,22 @@ def compute_argv(argv):
                 exit(0)
             a += 1
 
+        elif argv[a] in ["--match-thread", "-mt"]:
+            if a + 1 < len(argv):
+                temp_str = str(argv[a + 1])
+                args["match-thread"] = temp_str
+            else:
+                print("A string must be specified.")
+                exit(0)
+
+        elif argv[a] in ["--match-post", "-mp"]:
+            if a + 1 < len(argv):
+                temp_str = str(argv[a + 1])
+                args["match-post"] = temp_str
+            else:
+                print("A string must be specified.")
+                exit(0)
+
         elif argv[a] in ["--omit-sticky", "-os"]:
             args["omit-sticky"] = True
 
@@ -274,6 +291,8 @@ def compute_argv(argv):
               "      --max-threads    X |  -t | number of threads to compute (0 means all)\n"
               "      --max-posts      X |  -p | download the first X top score files (0 means all)\n"
               "      --extension   .ABC |  -e | select only certain types of files\n"
+              "      --match-thread   S | -mt | select threads that match a string\n"
+              "      --match-post     S | -mp | select posts that match a string\n"
               "      --omit-sticky      | -os | omit sticky threads\n")
     else:
         global log_file
@@ -295,5 +314,5 @@ BOARDS = ["a", "b", "c", "d", "e", "f", "g", "gif", "h", "hr", "k", "m", "o", "p
           "po", "pol", "qst", "sci", "soc", "sp", "tg", "toy", "trv", "tv", "vp", "wsg", "wsr", "x"]
 log_file = None
 
-compute_argv(["4crawl", "-b", "wsg", "-e", "gif", "webm"])
+compute_argv(["4crawl", "-b", "wg", "-t", "10", "-os", "-p", "10", "-mt", "screen", "-mp", "wall"])
 
