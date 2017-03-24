@@ -46,7 +46,7 @@ class Post:
 
 
 class Thread:
-    def __init__(self, board, no, now, name, sub, com, replies, images):
+    def __init__(self, board, no, now, name, sub, com, replies, images, args):
         self.board = str(board)
         self.no = str(no)
         self.now = str(now)
@@ -59,10 +59,10 @@ class Thread:
         self.average_score = -1
         self.posts = {}
 
-        if len(self.sub) > 0:
-            self.folder = self.board + "/" + self.no + " - " + self.sub.replace("/", "").replace("<", "")\
-                .replace(">", "").replace(":", "").replace('"', "").replace("\\", "").replace("|", "").replace("?", "")\
-                .replace("*", "")
+        if args["one-folder"]:
+            self.folder = self.board
+        elif len(self.sub) > 0:
+            self.folder = self.board + "/" + self.no + " - " + windows_escape(self.sub)
         else:
             self.folder = self.board + "/" + self.no
 
@@ -120,7 +120,6 @@ class Thread:
                         while b < len(link) and link[b] in [str(k) for k in range(10)]:
                             reply_id += link[b]
                             b += 1
-                        # reply_id = link[2:10]
                         if reply_id in self.posts:
                             self.posts[reply_id].add_reply(com)
 
@@ -190,7 +189,7 @@ def get_threads(board, args):
                 images = thread["images"]
             if ("sticky" not in thread or not args["omit-sticky"]) \
                     and (len(args["match-thread"]) == 0 or args["match-thread"] in sub+com):
-                threads.append(Thread(board, no, now, name, sub, com, replies, images))
+                threads.append(Thread(board, no, now, name, sub, com, replies, images, args))
                 added += 1
 
             if added >= args["max-threads"] > 0:
@@ -203,14 +202,14 @@ def get_threads(board, args):
 
 
 def get_average_score(posts):
-    if len(posts.values()) == 0:
-        return 0
     s = 0
     c = 0
     for key in posts.keys():
         if len(posts[key].filename) > 0:
             s += posts[key].get_score()
             c += 1
+    if c == 0:
+        return 0
     return s / c
 
 
@@ -230,7 +229,7 @@ def compute_boards(args):
 
 def compute_argv(argv):
     args = {"boards": [], "max-threads": 0, "max-posts": -1, "extensions": [], "log_filename": "log.txt",
-            "omit-sticky": False, "match-thread": "", "match-post": "", "width": [], "height": []}
+            "omit-sticky": False, "match-thread": "", "match-post": "", "width": [], "height": [], "one-folder": False}
     a = 1
     while a < len(argv):
 
@@ -326,6 +325,9 @@ def compute_argv(argv):
             if len(args["height"]) == 0:
                 print("Height: an expression must be specified.")
 
+        elif argv[a] in ["--one-folder", "-f"]:
+            args["one-folder"] = True
+
         a += 1
 
     if len(args["boards"]) == 0:
@@ -377,6 +379,11 @@ def evaluate_assertion(value, expression):
     return False
 
 
+def windows_escape(string):
+    return string.replace("/", "").replace("<", "").replace(">", "").replace(":", "").replace('"', "")\
+        .replace("\\", "").replace("|", "").replace("?", "").replace("*", "")
+
+
 BOARDS = ["a", "b", "c", "d", "e", "f", "g", "gif", "h", "hr", "k", "m", "o", "p", "r", "s", "t", "u", "v", "vg", "vr",
           "w", "wg", "i", "ic", "r9k", "s4s", "vip", "cm", "hm", "lgbt", "y", "3", "aco", "adv", "an", "asp", "biz",
           "cgl", "ck", "co", "diy", "fa", "fit", "gd", "hc", "his", "int", "jp", "lit", "mlp", "mu", "n", "news", "out",
@@ -385,3 +392,4 @@ log_file = None
 global_dowloaded = 0
 
 compute_argv(sys.argv)
+# compute_argv("4crawl -b p -t 10 -f".split(" "))
