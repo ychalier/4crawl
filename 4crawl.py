@@ -94,7 +94,9 @@ class Thread:
 
             if len(filename) > 0 \
                     and (len(args["extensions"]) == 0 or ext in args["extensions"])\
-                    and (len(args["match-post"]) == 0 or args["match-post"] in com):
+                    and (len(args["match-post"]) == 0 or args["match-post"] in com)\
+                    and evaluate_assertions(w, args["width"])\
+                    and evaluate_assertions(h, args["height"]):
                 self.posts[no] = Post(self, no, now, name, com, filename, ext, fsize, w, h, tim)
 
             if len(com) > 0:
@@ -203,7 +205,7 @@ def compute_boards(args):
 
 def compute_argv(argv):
     args = {"boards": [], "max-threads": 0, "max-posts": -1, "extensions": [], "log_filename": "log.txt",
-            "omit-sticky": False, "match-thread": "", "match-post": ""}
+            "omit-sticky": False, "match-thread": "", "match-post": "", "width": [], "height": []}
     a = 1
     while a < len(argv):
 
@@ -277,6 +279,28 @@ def compute_argv(argv):
         elif argv[a] in ["--omit-sticky", "-os"]:
             args["omit-sticky"] = True
 
+        elif argv[a] in ["--width", "-w"]:
+            while a + 2 < len(argv) and argv[a+1][:1] != "-":
+                if argv[a+1] in ["<", ">", "=", "<=", ">="]:
+                    args["width"].append((argv[a+1], int(argv[a+2])))
+                else:
+                    print("Wrong operator in width selecting: " + argv[a+1])
+                    exit(0)
+                a += 2
+            if len(args["width"]) == 0:
+                print("Width: an expression must be specified.")
+
+        elif argv[a] in ["--height", "-h"]:
+            while a + 2 < len(argv) and argv[a+1][:1] != "-":
+                if argv[a+1] in ["<", ">", "=", "<=", ">="]:
+                    args["height"].append((argv[a+1], int(argv[a+2])))
+                else:
+                    print("Wrong operator in height selecting: " + argv[a+1])
+                    exit(0)
+                a += 2
+            if len(args["height"]) == 0:
+                print("Height: an expression must be specified.")
+
         a += 1
 
     if len(args["boards"]) == 0:
@@ -304,6 +328,30 @@ def log(msg):
     print("\n"+msg)
 
 
+def evaluate_assertions(value, expressions):
+    result = True
+    for e in expressions:
+        result = result and evaluate_assertion(value, e)
+        if not result:
+            break
+    return result
+
+
+def evaluate_assertion(value, expression):
+    operator, reference = expression
+    if operator == ">":
+        return value > reference
+    elif operator == "<":
+        return value < reference
+    elif operator == "=":
+        return value == reference
+    elif operator == "<=":
+        return value <= reference
+    elif operator == ">=":
+        return value >= reference
+    return False
+
+
 BOARDS = ["a", "b", "c", "d", "e", "f", "g", "gif", "h", "hr", "k", "m", "o", "p", "r", "s", "t", "u", "v", "vg", "vr",
           "w", "wg", "i", "ic", "r9k", "s4s", "vip", "cm", "hm", "lgbt", "y", "3", "aco", "adv", "an", "asp", "biz",
           "cgl", "ck", "co", "diy", "fa", "fit", "gd", "hc", "his", "int", "jp", "lit", "mlp", "mu", "n", "news", "out",
@@ -311,4 +359,3 @@ BOARDS = ["a", "b", "c", "d", "e", "f", "g", "gif", "h", "hr", "k", "m", "o", "p
 log_file = None
 
 compute_argv(sys.argv)
-
