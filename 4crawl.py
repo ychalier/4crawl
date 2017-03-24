@@ -328,19 +328,31 @@ def compute_argv(argv):
         elif argv[a] in ["--one-folder", "-f"]:
             args["one-folder"] = True
 
+        elif argv[a] in ["--log", "-l"]:
+            if a + 1 < len(argv):
+                args["log_filename"] = argv[a+1]
+            else:
+                print("A filename for the log must be specified.")
+                exit(0)
+
         a += 1
 
     if len(args["boards"]) == 0:
         print("\nUSAGE:\n"
               "    4crawl [parameters]\n\n"
               "    parameters\n"
-              "      --boards         A |  -b | abreviation of desired boards\n"
-              "      --max-threads    X |  -t | number of threads to compute (0 means all)\n"
-              "      --max-posts      X |  -p | download the first X top score files (0 means all)\n"
-              "      --extension   .ABC |  -e | select only certain types of files\n"
-              "      --match-thread   S | -mt | select threads that match a string\n"
-              "      --match-post     S | -mp | select posts that match a string\n"
-              "      --omit-sticky      | -os | omit sticky threads\n")
+              "      --boards       |  -b \n"
+              "      --max-threads  |  -t \n"
+              "      --max-posts    |  -p \n"
+              "      --extension    |  -e \n"
+              "      --match-thread | -mt \n"
+              "      --match-post   | -mp \n"
+              "      --omit-sticky  | -os \n"
+              "      --width        |  -w \n"
+              "      --height       |  -h \n"
+              "      --log          |  -l \n"
+              "      --one-folder   |  -f \n\n"
+              "See the GitHub readme for more info.")
     else:
         global log_file
         log_file = open(args["log_filename"], "w")
@@ -392,4 +404,3 @@ log_file = None
 global_dowloaded = 0
 
 compute_argv(sys.argv)
-# compute_argv("4crawl -b p -t 10 -f".split(" "))
