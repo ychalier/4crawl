@@ -6,8 +6,9 @@ import urllib.request
 
 
 class Post:
-    def __init__(self, thread, no, now, name, com, filename, ext, fsize, w, h, tim):
+    def __init__(self, thread, valid, no, now, name, com, filename, ext, fsize, w, h, tim):
         self.thread = thread
+        self.valid = valid
 
         self.no = no
         self.now = now
@@ -21,14 +22,21 @@ class Post:
         self.tim = tim
 
         self.replies = 0
+        self.bonus = 0
 
-    def add_reply(self):
+    def add_reply(self, com=""):
         self.replies += 1
+        for keyword in ["sauce", "bump", "more", "moar", "plz", "name"]:
+            if keyword in com.lower():
+                self.bonus += 1
 
     def get_score(self):
-        return self.replies
+        return self.replies + self.bonus
 
     def download(self):
+        if not self.valid:
+            log("Trying to download an unvalid post.")
+            return
         filename = self.thread.folder + "/" + self.tim + self.ext
         url = "http://i.4cdn.org/" + self.thread.board + "/" + self.tim + self.ext
         try:
@@ -66,6 +74,7 @@ class Thread:
         data = json.loads(res)
 
         counter = 0
+        valid_count = 0
         for post in data["posts"]:
             counter += 1
             print("\rReading posts... " + str((100*counter)//self.replies) + "%", end="")
@@ -92,25 +101,35 @@ class Thread:
             if "tim" in post:
                 tim = str(post["tim"])
 
+            valid = False
             if len(filename) > 0 \
                     and (len(args["extensions"]) == 0 or ext in args["extensions"])\
                     and (len(args["match-post"]) == 0 or args["match-post"] in com)\
                     and evaluate_assertions(w, args["width"])\
                     and evaluate_assertions(h, args["height"]):
-                self.posts[no] = Post(self, no, now, name, com, filename, ext, fsize, w, h, tim)
+                valid = True
+                valid_count += 1
+
+            self.posts[no] = Post(self, valid, no, now, name, com, filename, ext, fsize, w, h, tim)
 
             if len(com) > 0:
                 for link in post["com"].split('href="'):
                     if link[:2] == "#p":
-                        reply_id = link[2:9]
+                        reply_id = ""
+                        b = 2
+                        while b < len(link) and link[b] in [str(k) for k in range(10)]:
+                            reply_id += link[b]
+                            b += 1
+                        # reply_id = link[2:10]
                         if reply_id in self.posts:
-                            self.posts[reply_id].add_reply()
+                            self.posts[reply_id].add_reply(com)
 
         self.average_score = get_average_score(self.posts)
 
-        log(str(len(self.posts)) + " relevant posts found, avg score: " + str(self.average_score)[:4])
+        log(str(valid_count) + " relevant posts found, avg score: " + str(self.average_score)[:4])
 
     def get_files(self, args):
+        global global_dowloaded
         processed, downloaded = 0, 0  # counters
 
         posts_list = list(self.posts.values())
@@ -123,7 +142,7 @@ class Thread:
 
             print("\rDownloading files... " + str((100 * processed) // len(self.posts)) + "%", end="")
 
-            if post.get_score() > self.average_score or args["max-posts"] >= 0:
+            if post.valid and post.get_score() > self.average_score or args["max-posts"] >= 0:
                 downloaded += 1
                 if downloaded == 1 and not os.path.exists(self.folder):
                     os.makedirs(self.folder)
@@ -131,6 +150,7 @@ class Thread:
 
             i += 1
 
+        global_dowloaded += downloaded
         log(str(downloaded) + " files downloaded.")
 
 
@@ -186,12 +206,16 @@ def get_average_score(posts):
     if len(posts.values()) == 0:
         return 0
     s = 0
+    c = 0
     for key in posts.keys():
-        s += posts[key].get_score()
-    return s / len(posts.values())
+        if len(posts[key].filename) > 0:
+            s += posts[key].get_score()
+            c += 1
+    return s / c
 
 
 def compute_boards(args):
+    global global_dowloaded
     for board in args["boards"]:
         print("\n===   BOARD " + board + "   ===\n")
         i, threads = 0, get_threads(board, args)
@@ -201,6 +225,7 @@ def compute_boards(args):
             threads[i].get_posts(args)
             threads[i].get_files(args)
             i += 1
+    print("\n\n4crawl. Done. " + str(global_dowloaded) + " files downloaded.")
 
 
 def compute_argv(argv):
@@ -357,5 +382,6 @@ BOARDS = ["a", "b", "c", "d", "e", "f", "g", "gif", "h", "hr", "k", "m", "o", "p
           "cgl", "ck", "co", "diy", "fa", "fit", "gd", "hc", "his", "int", "jp", "lit", "mlp", "mu", "n", "news", "out",
           "po", "pol", "qst", "sci", "soc", "sp", "tg", "toy", "trv", "tv", "vp", "wsg", "wsr", "x"]
 log_file = None
+global_dowloaded = 0
 
 compute_argv(sys.argv)
