@@ -60,11 +60,11 @@ So here we're downloading the first 10 threads, omitting the sticky.
 
     4crawl -b wg -t 10 -os
 
-To download only threads with phone walls, we can match the thread descriptions.
+To download only threads with phone walls, one can match the thread descriptions.
 
     4crawl -b wg -t 10 -os -mt phone
 
-Exemple of size selection
+Example of size selection
 
     4crawl -b wg -t 10 -os -w >= 1920 <= 3840 -h >= 1080 <= 2160
 
@@ -72,6 +72,6 @@ Download all images from threads
 
     4crawl -b wg -p 0
 
-Dowload all webms of /wsg/
+Download all webms of /wsg/
 
     4crawl -b wsg -os -e .webm -p 0
