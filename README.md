@@ -27,14 +27,8 @@ Extended | Concise | Argument | Description
 `--height` | `-h` | `operator value ...` | conditions on images height
 `--omit-sticky` | `-os` | | omit sticky threads when fetching threads
 `--one-folder` | `-f` | | do not create separated folders for each thread
-`--log` | `-l` | `filename` | change the name of the log file
 
-Supported operators for dimension selection are `=`, `<`, `>`, `>=`, `<=`.
-
-### log
-
-By default a log file `log.txt` is created at the scrit beginning, and is deleted at closing.
-If there is any crash during runtime, checkout this log to debug.
+Supported operators for dimension selection are `=`, `<`, `>`, `>=`, `<=`, and their equivalent in text: `eq`, `lt`, `gt`, `gte`, `lte`.
 
 ## mechanics
 
@@ -64,9 +58,9 @@ To download only threads with phone walls, one can match the thread descriptions
 
     4crawl -b wg -t 10 -os -mt phone
 
-Example of size selection
+To fetch 4K wallpapers:
 
-    4crawl -b wg -t 10 -os -w >= 1920 <= 3840 -h >= 1080 <= 2160
+    4crawl -b wg -t 0 -os -w gte 3840 -h gte 2160
 
 Download all images from threads
 
