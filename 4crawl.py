@@ -264,8 +264,8 @@ def compute_boards(args):
         for page in catalog:
             for thread in page["threads"]:
                 sub, com = "", ""
-                if "sub" in thread: sub = thread["sub"]
-                if "com" in thread: com = thread["com"]
+                if "sub" in thread: sub = thread["sub"].lower()
+                if "com" in thread: com = thread["com"].lower()
                 if (("sticky" not in thread or not args["omit-sticky"]) and
                 (len(threads) < args["max-threads"] or args["max-threads"] < 1)
                 and args["match-thread"] in sub + com):
