@@ -315,7 +315,7 @@ def compute_boards(args):
                         if "filename" in thread:
                             img_count += 1
                         print("{0}\t{2}\t{3}\t{1}".format(no_str(thread), sub,
-                              img_count, thread["replies"]))
+                              img_count,  thread["replies"]))
                     else:
                         threads.append(thread)
         print("{0} threads found, {1} to process.\n".format(total, len(threads)))
@@ -327,5 +327,7 @@ def compute_boards(args):
             dl_count += compute_thread(board, thread, args, i + 1, len(threads))
     print("\n{0} images downloaded.".format(dl_count))
 
-
-compute_argv(sys.argv)
+try:
+    compute_argv(sys.argv)
+except KeyboardInterrupt:
+    print("\n\nProgram interrupted.")
