@@ -314,6 +314,7 @@ def compute_boards(args):
                         img_count = thread["images"]
                         if "filename" in thread:
                             img_count += 1
+                        if len(sub) == 0: sub = com[:50] + "..."
                         print("{0}\t{2}\t{3}\t{1}".format(no_str(thread), sub,
                               img_count,  thread["replies"]))
                     else:
