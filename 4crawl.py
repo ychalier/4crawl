@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import time
 import urllib.error
 import urllib.request
 
@@ -174,10 +175,20 @@ def compute_argv(argv):
         compute_boards(args)
 
 
+last_request = 0
 def json_request(url):
+    global last_request
+    data = None
+    if time.time() - last_request <= 1:
+        time.sleep(last_request - time.time() + 1.0)
     req = urllib.request.Request(url, headers={"User-AGent": "Magic Browser"})
-    res = urllib.request.urlopen(req)
-    return json.loads(res.read().decode("utf-8"))
+    try:
+        res = urllib.request.urlopen(req)
+        data = json.loads(res.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        print(Color.RED + str(e) + Color.END)
+    last_request = time.time()
+    return data
 
 
 def evaluate_assertions(value, expressions):
@@ -210,7 +221,10 @@ def escape(path):
 
 
 def compute_thread(board, thread, args, index, total):
-    posts = json_request(URL_POSTS.format(board, thread["no"]))["posts"]
+    data = json_request(URL_POSTS.format(board, thread["no"]))
+    if data is None:
+        return 0
+    posts = data["posts"]
     print("{0}/{1}:\t{2} posts found...".format(index, total, len(posts)),
           end="")
     valid = {}
@@ -266,7 +280,7 @@ def compute_thread(board, thread, args, index, total):
         try:
             urllib.request.urlretrieve(url, filename)
         except urllib.error.HTTPError:
-            print("Error downloading {0} at {1}".format(url, filename))
+            print("\nError downloading {0} at {1}".format(url, filename))
     print("{0};\t{1} files downloaded.".format(prefix, len(to_download)))
     sys.stdout.flush()
     return len(to_download)
