@@ -223,7 +223,7 @@ def escape(path):
 def compute_thread(board, thread, args, index, total):
     prefix = "{0}\t{1}\t".format(index, no_str(thread))
     print(prefix, end="")
-    data = json_request(URL_POSTS.format(board, no_str(thread)))
+    data = json_request(URL_POSTS.format(board, thread["no"]))
     if data is None:
         return 0
     posts = data["posts"]
@@ -289,7 +289,7 @@ def compute_thread(board, thread, args, index, total):
 def no_str(thread):
     string = str(thread["no"])
     while len(string) < 8:
-        string = " " + string
+        string = string + " "
     return string
 
 
