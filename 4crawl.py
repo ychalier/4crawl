@@ -221,12 +221,14 @@ def escape(path):
 
 
 def compute_thread(board, thread, args, index, total):
-    data = json_request(URL_POSTS.format(board, thread["no"]))
+    prefix = "{0}\t{1}\t".format(index, no_str(thread))
+    print(prefix, end="")
+    data = json_request(URL_POSTS.format(board, no_str(thread)))
     if data is None:
         return 0
     posts = data["posts"]
-    print("{0}/{1}:\t{2} posts found...".format(index, total, len(posts)),
-          end="")
+    prefix += "{0}\t".format(len(posts))
+    print("\r" + prefix, end="")
     valid = {}
     for post in posts:
         ext, com = "", ""
@@ -252,12 +254,11 @@ def compute_thread(board, thread, args, index, total):
     scores = []
     for key in valid.keys():
         scores.append(valid[key]["replies"] + valid[key]["bonus"])
-    avg_score = "NaN"
+    avg_score = "-"
     if len(scores) > 0:
         avg_score = sum(scores) / float(len(scores))
-    prefix = "\r{0}/{1}:\t{2} posts found, {3} are valid;\tavg score:{4}"\
-             .format(index, total, len(posts), len(valid), str(avg_score)[:4])
-    print(prefix, end="")
+    prefix += "{0}\t{1}\t".format(len(valid), str(avg_score)[:4])
+    print("\r" + prefix, end="")
     sys.stdout.flush()
 
     folder = board
@@ -271,8 +272,7 @@ def compute_thread(board, thread, args, index, total):
         to_download = [p for p in to_download[:args["max-posts"]]
                        if p["replies"] + p["bonus"] >= avg_score]
     for i, post in enumerate(to_download):
-        print("{0};\tdownload {1}/{2}".format(prefix, i+1, len(to_download)),
-              end="")
+        print("\r" + prefix + "{0}/{1}".format(i+1, len(to_download)), end="")
         if i == 0 and not os.path.exists(folder):
             os.makedirs(folder)
         filename = folder + "/" + str(post["post"]["tim"]) + post["post"]["ext"]
@@ -281,15 +281,22 @@ def compute_thread(board, thread, args, index, total):
             urllib.request.urlretrieve(url, filename)
         except urllib.error.HTTPError:
             print("\nError downloading {0} at {1}".format(url, filename))
-    print("{0};\t{1} files downloaded.".format(prefix, len(to_download)))
+    print("\r" + prefix + "{0}/{1}".format(len(to_download), len(to_download)))
     sys.stdout.flush()
     return len(to_download)
+
+
+def no_str(thread):
+    string = str(thread["no"])
+    while len(string) < 8:
+        string = " " + string
+    return string
 
 
 def compute_boards(args):
     dl_count = 0
     for board in args["boards"]:
-        print("\n===   BOARD " + board + "   ===\n")
+        print("\n----- " + board + " -----\n")
         catalog = json_request(URL_CATALOG.format(board))
         total = sum([len(page["threads"]) for page in catalog])
         threads = []
@@ -307,13 +314,14 @@ def compute_boards(args):
                         img_count = thread["images"]
                         if "filename" in thread:
                             img_count += 1
-                        if "sticky" in thread:
-                            img_count = "\t" + str(img_count)
-                        print("{0}\t{2}\t{3}\t{1}".format(thread["no"], sub,
+                        print("{0}\t{2}\t{3}\t{1}".format(no_str(thread), sub,
                               img_count, thread["replies"]))
                     else:
                         threads.append(thread)
-        print("{0} threads found, {1} to process.".format(total, len(threads)))
+        print("{0} threads found, {1} to process.\n".format(total, len(threads)))
+        if len(threads) > 0:
+            print(Color.BOLD + "id\tno\t\tposts\tvalid\tscore\tdownload"
+                 + Color.END)
         sys.stdout.flush()
         for i, thread in enumerate(threads):
             dl_count += compute_thread(board, thread, args, i + 1, len(threads))
