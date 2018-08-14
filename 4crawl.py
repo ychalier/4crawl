@@ -34,7 +34,8 @@ def compute_argv(argv):
         "match-post": "",
         "width": [],
         "height": [],
-        "one-folder": False
+        "one-folder": False,
+        "list-threads": False
     }
 
     operators = ["<", ">", "=", "<=", ">=", "gte", "lte", "lt", "gt", "eq"]
@@ -135,6 +136,9 @@ def compute_argv(argv):
         elif argv[a] in ["--one-folder", "-f"]:
             args["one-folder"] = True
 
+        elif argv[a] in ["--list-threads", "-lt"]:
+            args["list-threads"] = True
+
         a += 1
 
     if len(args["boards"]) == 0:
@@ -142,6 +146,7 @@ def compute_argv(argv):
               "    4crawl [parameters]\n\n"
               "    parameters\n"
               "      --boards       |  -b \n"
+              "      --list-threads | -lt \n"
               "      --max-threads  |  -t \n"
               "      --max-posts    |  -p \n"
               "      --extension    |  -e \n"
@@ -263,13 +268,18 @@ def compute_boards(args):
         threads = []
         for page in catalog:
             for thread in page["threads"]:
-                sub, com = "", ""
                 if "sub" in thread: sub = thread["sub"].lower()
-                if "com" in thread: com = thread["com"].lower()
-                if (("sticky" not in thread or not args["omit-sticky"]) and
-                (len(threads) < args["max-threads"] or args["max-threads"] < 1)
-                and args["match-thread"] in sub + com):
-                    threads.append(thread)
+                if args["list-threads"]:
+                    print("{0}\t{2}/{3}\t{1}".format(thread["no"], sub,
+                          thread["images"], thread["replies"]))
+                else:
+                    sub, com = "", ""
+                    if "com" in thread: com = thread["com"].lower()
+                    if (("sticky" not in thread or not args["omit-sticky"]) and
+                    (len(threads) < args["max-threads"]
+                    or args["max-threads"] < 1)
+                    and args["match-thread"] in sub + com):
+                        threads.append(thread)
         print("{0} threads found, {1} to process.".format(total, len(threads)))
         sys.stdout.flush()
         for i, thread in enumerate(threads):
