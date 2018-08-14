@@ -5,6 +5,19 @@ import urllib.error
 import urllib.request
 
 
+class Color:
+   PURPLE = '\033[95m'
+   CYAN = '\033[96m'
+   DARKCYAN = '\033[36m'
+   BLUE = '\033[94m'
+   GREEN = '\033[92m'
+   YELLOW = '\033[93m'
+   RED = '\033[91m'
+   BOLD = '\033[1m'
+   UNDERLINE = '\033[4m'
+   END = '\033[0m'
+
+
 BOARDS = ["a", "b", "c", "d", "e", "f", "g", "gif", "h", "hr", "k", "m", "o",
           "p", "r", "s", "t", "u", "v", "vg", "vr", "w", "wg", "i", "ic", "r9k",
           "s4s", "vip", "cm", "hm", "lgbt", "y", "3", "aco", "adv", "an", "asp",
@@ -266,19 +279,25 @@ def compute_boards(args):
         catalog = json_request(URL_CATALOG.format(board))
         total = sum([len(page["threads"]) for page in catalog])
         threads = []
+        if args["list-threads"]:
+            print(Color.BOLD + "no\t\timages\treplies\ttitle" + Color.END)
         for page in catalog:
             for thread in page["threads"]:
+                sub, com = "", ""
                 if "sub" in thread: sub = thread["sub"].lower()
-                if args["list-threads"]:
-                    print("{0}\t{2}/{3}\t{1}".format(thread["no"], sub,
-                          thread["images"], thread["replies"]))
-                else:
-                    sub, com = "", ""
-                    if "com" in thread: com = thread["com"].lower()
-                    if (("sticky" not in thread or not args["omit-sticky"]) and
-                    (len(threads) < args["max-threads"]
-                    or args["max-threads"] < 1)
-                    and args["match-thread"] in sub + com):
+                if "com" in thread: com = thread["com"].lower()
+                if (("sticky" not in thread or not args["omit-sticky"]) and
+                (len(threads) < args["max-threads"] or args["max-threads"] < 1)
+                and args["match-thread"] in sub + com):
+                    if args["list-threads"]:
+                        img_count = thread["images"]
+                        if "filename" in thread:
+                            img_count += 1
+                        if "sticky" in thread:
+                            img_count = "\t" + str(img_count)
+                        print("{0}\t{2}\t{3}\t{1}".format(thread["no"], sub,
+                              img_count, thread["replies"]))
+                    else:
                         threads.append(thread)
         print("{0} threads found, {1} to process.".format(total, len(threads)))
         sys.stdout.flush()
