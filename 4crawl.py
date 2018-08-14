@@ -309,7 +309,7 @@ def compute_boards(args):
                 if "com" in thread: com = thread["com"].lower()
                 if (("sticky" not in thread or not args["omit-sticky"]) and
                 (len(threads) < args["max-threads"] or args["max-threads"] < 1)
-                and args["match-thread"] in sub + com):
+                and args["match-thread"] in sub + com + str(thread["no"])):
                     if args["list-threads"]:
                         img_count = thread["images"]
                         if "filename" in thread:
