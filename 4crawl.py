@@ -261,7 +261,7 @@ def compute_thread(board, thread, args, index, total):
     print("\r" + prefix, end="")
     sys.stdout.flush()
 
-    folder = board
+    folder = "dl/" + board
     if not args["one-folder"]:
         folder += "/" + str(thread["no"])
     if not args["one-folder"] and "sub" in thread:
