@@ -46,6 +46,7 @@ def compute_argv(argv):
         "omit-sticky": False,
         "match-thread": "",
         "match-post": "",
+        "ignore-thread": "",
         "width": [],
         "height": [],
         "one-folder": False,
@@ -108,16 +109,21 @@ def compute_argv(argv):
 
         elif argv[a] in ["--match-thread", "-mt"]:
             if a + 1 < len(argv):
-                temp_str = str(argv[a + 1])
-                args["match-thread"] = temp_str
+                args["match-thread"] = str(argv[a + 1])
+            else:
+                print("A string must be specified.")
+                exit(0)
+
+        elif argv[a] in ["--ignore-thread", "-it"]:
+            if a + 1 < len(argv):
+                args["ignore-thread"] = str(argv[a + 1])
             else:
                 print("A string must be specified.")
                 exit(0)
 
         elif argv[a] in ["--match-post", "-mp"]:
             if a + 1 < len(argv):
-                temp_str = str(argv[a + 1])
-                args["match-post"] = temp_str
+                args["match-post"] = str(argv[a + 1])
             else:
                 print("A string must be specified.")
                 exit(0)
@@ -309,7 +315,9 @@ def compute_boards(args):
                 if "com" in thread: com = thread["com"].lower()
                 if (("sticky" not in thread or not args["omit-sticky"]) and
                 (len(threads) < args["max-threads"] or args["max-threads"] < 1)
-                and args["match-thread"] in sub + com + str(thread["no"])):
+                and args["match-thread"] in sub + com + str(thread["no"])
+                and (args["ignore-thread"] not in sub + com + str(thread["no"])
+                or args["ignore-thread"] == "")):
                     if args["list-threads"]:
                         img_count = thread["images"]
                         if "filename" in thread:
