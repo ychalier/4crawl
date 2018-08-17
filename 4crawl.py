@@ -299,34 +299,49 @@ def no_str(thread):
     return string
 
 
+def normalize(values):
+    mean = sum(values) / len(values)
+    sd = (sum([(v - mean) ** 2 for v in values]) / len(values)) ** .5
+    return [(v - mean) / sd for v in values]
+
+
 def compute_boards(args):
     dl_count = 0
     for board in args["boards"]:
         print("\n----- " + board + " -----\n")
         catalog = json_request(URL_CATALOG.format(board))
         total = sum([len(page["threads"]) for page in catalog])
-        threads = []
+        threads, replies, indexes = [], [], []
         if args["list-threads"]:
             print(Color.BOLD + "no\t\timages\treplies\ttitle" + Color.END)
         for page in catalog:
             for thread in page["threads"]:
-                sub, com = "", ""
-                if "sub" in thread: sub = thread["sub"].lower()
-                if "com" in thread: com = thread["com"].lower()
-                if (("sticky" not in thread or not args["omit-sticky"]) and
-                (len(threads) < args["max-threads"] or args["max-threads"] < 1)
-                and args["match-thread"] in sub + com + str(thread["no"])
-                and (args["ignore-thread"] not in sub + com + str(thread["no"])
-                or args["ignore-thread"] == "")):
-                    if args["list-threads"]:
-                        img_count = thread["images"]
-                        if "filename" in thread:
-                            img_count += 1
-                        if len(sub) == 0: sub = com[:50] + "..."
-                        print("{0}\t{2}\t{3}\t{1}".format(no_str(thread), sub,
-                              img_count,  thread["replies"]))
-                    else:
-                        threads.append(thread)
+                index = len(threads)
+                threads.append((index, thread))
+                replies.append(thread["replies"])
+                indexes.append(index)
+        replies, indexes = normalize(replies), normalize(indexes)
+        threads.sort(key=lambda x: -(replies[x[0]] + indexes[x[0]])/2)
+        ordered = [t[1] for t in threads]
+        threads = []
+        for thread in ordered:
+            sub, com = "", ""
+            if "sub" in thread: sub = thread["sub"].lower()
+            if "com" in thread: com = thread["com"].lower()
+            if (("sticky" not in thread or not args["omit-sticky"]) and
+            (len(threads) < args["max-threads"] or args["max-threads"] < 1)
+            and args["match-thread"] in sub + com + str(thread["no"])
+            and (args["ignore-thread"] not in sub + com + str(thread["no"])
+            or args["ignore-thread"] == "")):
+                if args["list-threads"]:
+                    img_count = thread["images"]
+                    if "filename" in thread:
+                        img_count += 1
+                    if len(sub) == 0: sub = com[:50] + "..."
+                    print("{0}\t{2}\t{3}\t{1}".format(no_str(thread), sub,
+                          img_count,  thread["replies"]))
+                else:
+                    threads.append(thread)
         print("{0} threads found, {1} to process.\n".format(total, len(threads)))
         if len(threads) > 0:
             print(Color.BOLD + "id\tno\t\tposts\tvalid\tscore\tdownload"
