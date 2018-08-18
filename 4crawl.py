@@ -321,7 +321,7 @@ def compute_boards(args):
                 replies.append(thread["replies"])
                 indexes.append(index)
         replies, indexes = normalize(replies), normalize(indexes)
-        threads.sort(key=lambda x: -(replies[x[0]] + indexes[x[0]])/2)
+        threads.sort(key=lambda x: -(replies[x[0]] + indexes[x[0]]) / 2 ** .5)
         ordered = [t[1] for t in threads]
         threads = []
         for thread in ordered:
@@ -337,7 +337,10 @@ def compute_boards(args):
                     img_count = thread["images"]
                     if "filename" in thread:
                         img_count += 1
-                    if len(sub) == 0: sub = com[:50] + "..."
+                    if len(sub) == 0:
+                        sub = com[:50]
+                        if len(sub) == 50:
+                            sub += "..."
                     print("{0}\t{2}\t{3}\t{1}".format(no_str(thread), sub,
                           img_count,  thread["replies"]))
                 else:
