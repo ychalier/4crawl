@@ -1,7 +1,9 @@
 import os
+import re
 import sys
 import json
 import time
+import networkx
 import urllib.error
 import urllib.request
 
@@ -28,12 +30,13 @@ BOARDS = ["a", "b", "c", "d", "e", "f", "g", "gif", "h", "hr", "k", "m", "o",
           "wsr", "x"]
 
 
-BONUS_KEYWORDS = ["sauce", "bump", "more", "moar", "plz", "name", "please"]
+KEYWORDS = ["sauce", "bump", "more", "moar", "plz", "name", "please",
+    "thank you", "thanks", "thank u", "thx", "finally", "this."]
 
 
 URL_CATALOG = "http://a.4cdn.org/{0}/catalog.json"
 URL_POSTS = "http://a.4cdn.org/{0}/thread/{1}.json"
-URL_FILE = "http://i.4cdn.org/{0}/{1}{2}"
+URL_FILE = "http://i.4cdn.org/{0}/{1}"
 
 
 def compute_argv(argv):
@@ -187,7 +190,7 @@ def json_request(url):
     data = None
     if time.time() - last_request <= 1:
         time.sleep(last_request - time.time() + 1.0)
-    req = urllib.request.Request(url, headers={"User-AGent": "Magic Browser"})
+    req = urllib.request.Request(url, headers={"User-Agent": "Magic Browser"})
     try:
         res = urllib.request.urlopen(req)
         data = json.loads(res.read().decode("utf-8"))
@@ -197,115 +200,107 @@ def json_request(url):
     return data
 
 
-def evaluate_assertions(value, expressions):
-    result = True
-    for e in expressions:
-        result = result and evaluate_assertion(value, e)
-        if not result:
-            break
-    return result
-
-def evaluate_assertion(value, expression):
-    operator, reference = expression
-    if operator in [">", "gt"]:
-        return value > reference
-    elif operator in ["<", "lt"]:
-        return value < reference
-    elif operator in ["=", "eq"]:
-        return value == reference
-    elif operator in ["<=", "lte"]:
-        return value <= reference
-    elif operator in [">=", "gte"]:
-        return value >= reference
-    return False
-
-
-def escape(path):
-    return path.replace("/", "").replace("<", "").replace(">", "")\
-               .replace(":", "").replace('"', "").replace("\\", "")\
-               .replace("|", "").replace("?", "").replace("*", "")
-
-
 def compute_thread(board, thread, args, index, total):
-    prefix = "{0}\t{1}\t".format(index, no_str(thread))
-    print(prefix, end="")
+    def print_aux(prefix, string, end=""):
+        print("\r" + prefix + string, end=end)
+        sys.stdout.flush()
+        return prefix + string
+
+    def post_is_valid(args, post):
+        def evaluate_expressions(value, expressions):
+            for expression in expressions:
+                operator, reference = expression
+                if operator in [">", "gt"] and value <= reference:
+                    return False
+                elif operator in ["<", "lt"] and value >= reference:
+                    return False
+                elif operator in ["=", "eq"] and value != reference:
+                    return False
+                elif operator in ["<=", "lte"] and value > reference:
+                    return False
+                elif operator in [">=", "gte"] and value < reference:
+                    return False
+            return True
+        return ("filename" in post
+            and (len(args["extensions"]) == 0
+            or post["ext"] in args["extensions"])
+            and ("com" in post and args["match-post"] in post["com"].lower()
+            or len(args["match-post"]) == 0)
+            and evaluate_expressions(post["w"], args["width"])
+            and evaluate_expressions(post["h"], args["height"]))
+
+    prefix = print_aux("", "{0}\t{1}\t".format(index, thread["id"]))
+
     data = json_request(URL_POSTS.format(board, thread["no"]))
     if data is None:
         return 0
-    posts = data["posts"]
-    prefix += "{0}\t".format(len(posts))
-    print("\r" + prefix, end="")
-    valid = {}
-    for post in posts:
-        ext, com = "", ""
-        if "com" in post: com = post["com"]
-        if ("filename" in post
-        and (len(args["extensions"]) == 0 or post["ext"] in args["extensions"])
-        and args["match-post"] in "com"
-        and evaluate_assertions(post["w"], args["width"])
-        and evaluate_assertions(post["h"], args["height"])):
-            valid[post["no"]] = {"post": post, "replies": 0, "bonus": 0}
-        if len(com) > 0:
-            for link in [l for l in com.split('href="') if l[:2] == "#p"]:
-                reply_id, b = "", 2
-                while b < len(link) and link[b] in [str(k) for k in range(10)]:
-                    reply_id += link[b]
-                    b += 1
-                reply_id = int(reply_id)
-                if reply_id in valid.keys():
-                    valid[reply_id]["replies"] += 1
-                    for keyword in BONUS_KEYWORDS:
-                        if keyword in com.lower():
-                            valid[reply_id]["bonus"] += 1
-    scores = []
-    for key in valid.keys():
-        scores.append(valid[key]["replies"] + valid[key]["bonus"])
-    avg_score = "-"
-    if len(scores) > 0:
-        avg_score = sum(scores) / float(len(scores))
-    prefix += "{0}\t{1}\t".format(len(valid), str(avg_score)[:4])
-    print("\r" + prefix, end="")
-    sys.stdout.flush()
+    posts_list = data["posts"]
+    prefix = print_aux(prefix, "{0}\t".format(len(posts_list)))
 
-    folder = "dl/" + board
-    if not args["one-folder"]:
-        folder += "/" + str(thread["no"])
-    if not args["one-folder"] and "sub" in thread:
-        folder += "-" + escape(thread["sub"])
-    to_download = list(valid.values())
-    to_download.sort(key=lambda p: -(p["replies"] + p["bonus"]))
+    edges, valid, posts = [], [], {}
+    graph = networkx.DiGraph()
+    for post in posts_list:
+        posts[post["no"]] = post
+        graph.add_node(post["no"])
+        if "com" in post:
+            weight = len([w for w in KEYWORDS if w in post["com"].lower()]) + 1
+            pattern = r"#p([0-9]+)"
+            matches = re.findall(pattern, post["com"], re.MULTILINE)
+            for match in matches:
+                graph.add_edge(post["no"], int(match), weight=weight)
+                if int(match) in posts.keys():
+                    if "history" not in posts[int(match)]:
+                        posts[int(match)]["history"] = ""
+                    posts[int(match)]["history"] += post["com"] + "\n-----\n"
+        if post_is_valid(args, post):
+            valid.append(post["no"])
+    pagerank = networkx.pagerank(graph, max_iter=50)
+    valid.sort(key=lambda no: -pagerank[no])
+    valid = [posts[no] for no in valid]
+
+    prefix = print_aux(prefix, "{0}\t".format(len(valid)))
+
     if args["max-posts"] > 0:
-        to_download = [p for p in to_download[:args["max-posts"]]
-                       if p["replies"] + p["bonus"] >= avg_score]
-    for i, post in enumerate(to_download):
-        print("\r" + prefix + "{0}/{1}".format(i+1, len(to_download)), end="")
-        if i == 0 and not os.path.exists(folder):
-            os.makedirs(folder)
-        filename = folder + "/" + str(post["post"]["tim"]) + post["post"]["ext"]
-        url = URL_FILE.format(board, post["post"]["tim"], post["post"]["ext"])
+        del valid[args["max-posts"]:]
+
+    # files download
+    folder = "dl/" + board + "/"
+    if not args["one-folder"]:
+        folder += thread["folder"] + "/"
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    for i, post in enumerate(valid):
+        print_aux(prefix, "{0}/{1}".format(i+1, len(valid)))
+        filename = str(post["tim"]) + post["ext"]
+        url = URL_FILE.format(board, filename)
         try:
-            urllib.request.urlretrieve(url, filename)
+            urllib.request.urlretrieve(url, folder + filename)
         except urllib.error.HTTPError:
             print("\nError downloading {0} at {1}".format(url, filename))
-    print("\r" + prefix + "{0}/{1}".format(len(to_download), len(to_download)))
-    sys.stdout.flush()
-    return len(to_download)
+        data = {
+            "file": folder + filename,
+            "thread": thread["title"],
+            "board": board
+        }
+        if "history" in post: data["history"] = post["history"]
+        if "com" in post: data["com"] = post["com"]
+        with open("index.json", "a") as file:
+            file.write(json.dumps(data, ensure_ascii=False) + ",")
+    print_aux(prefix, "{0}/{1}".format(len(valid), len(valid)), "\n")
 
-
-def no_str(thread):
-    string = str(thread["no"])
-    while len(string) < 8:
-        string = string + " "
-    return string
-
-
-def normalize(values):
-    mean = sum(values) / len(values)
-    sd = (sum([(v - mean) ** 2 for v in values]) / len(values)) ** .5
-    return [(v - mean) / sd for v in values]
+    return len(valid)
 
 
 def compute_boards(args):
+    def thread_is_valid(args, thread):
+        sub, com = "", ""
+        if "sub" in thread: sub = thread["sub"].lower()
+        if "com" in thread: com = thread["com"].lower()
+        return (("sticky" not in thread or not args["omit-sticky"])
+            and args["match-thread"] in sub + com + str(thread["no"])
+            and (args["ignore-thread"] not in sub + com + str(thread["no"])
+            or args["ignore-thread"] == ""))
+
     dl_count = 0
     for board in args["boards"]:
         print("\n----- " + board + " -----\n")
@@ -316,43 +311,55 @@ def compute_boards(args):
             print(Color.BOLD + "no\t\timages\treplies\ttitle" + Color.END)
         for page in catalog:
             for thread in page["threads"]:
-                index = len(threads)
-                threads.append((index, thread))
-                replies.append(thread["replies"])
-                indexes.append(index)
-        replies, indexes = normalize(replies), normalize(indexes)
-        threads.sort(key=lambda x: -(replies[x[0]] + indexes[x[0]]) / 2 ** .5)
-        ordered = [t[1] for t in threads]
-        threads = []
-        for thread in ordered:
-            sub, com = "", ""
-            if "sub" in thread: sub = thread["sub"].lower()
-            if "com" in thread: com = thread["com"].lower()
-            if (("sticky" not in thread or not args["omit-sticky"]) and
-            (len(threads) < args["max-threads"] or args["max-threads"] < 1)
-            and args["match-thread"] in sub + com + str(thread["no"])
-            and (args["ignore-thread"] not in sub + com + str(thread["no"])
-            or args["ignore-thread"] == "")):
-                if args["list-threads"]:
-                    img_count = thread["images"]
-                    if "filename" in thread:
-                        img_count += 1
-                    if len(sub) == 0:
-                        sub = com[:50]
-                        if len(sub) == 50:
-                            sub += "..."
-                    print("{0}\t{2}\t{3}\t{1}".format(no_str(thread), sub,
-                          img_count,  thread["replies"]))
-                else:
+                if thread_is_valid(args, thread):
+                    title, folder, no = "", str(thread["no"]), str(thread["no"])
+                    while len(no) < 8:
+                        no = no + " "
+                    if "sub" in thread:
+                        title = thread["sub"]
+                        folder += "-" + thread["sub"]
+                    elif "com" in thread:
+                        title = thread["com"]
+                        folder += "-" + thread["com"][:20]
+                    else:
+                        title = str(thread["no"])
+                    if len(title) >= 90:
+                        title = title[:80] + "..."
+                    for char in list("/<>:\"\\|?*."):
+                        folder = folder.replace(char, "")
+                    thread["title"] = title
+                    thread["folder"] = folder
+                    thread["id"] = no
+                    thread["index"] = len(threads)
                     threads.append(thread)
-        print("{0} threads found, {1} to process.\n".format(total, len(threads)))
+        threads.sort(key=lambda thread:
+            - (thread["replies"] / 350. + thread["index"] / 150.))
+        if args["max-threads"] > 0:
+            del threads[args["max-threads"]:]
+
+        if args["list-threads"]:
+            for thread in threads:
+                img_count = thread["images"]
+                if "filename" in thread:
+                    img_count += 1
+                print("{0}\t{2}\t{3}\t{1}".format(thread["id"],
+                    thread["title"], img_count, thread["replies"]))
+            threads = []
+
+        print("{0} threads found, {1} to process\n".format(total, len(threads)))
         if len(threads) > 0:
-            print(Color.BOLD + "id\tno\t\tposts\tvalid\tscore\tdownload"
-                 + Color.END)
-        sys.stdout.flush()
-        for i, thread in enumerate(threads):
-            dl_count += compute_thread(board, thread, args, i + 1, len(threads))
+            print(Color.BOLD + "id\tno\t\tposts\tvalid\tdownload" + Color.END)
+            sys.stdout.flush()
+            with open("index.json", "w") as file:
+                file.write("[")
+            for i, thread in enumerate(threads):
+                dl_count += compute_thread(board, thread, args,
+                                           i + 1, len(threads))
+            with open("index.json", "rb+") as file:
+                file.seek(-1, os.SEEK_END)
+                file.write("]".encode())
     print("\n{0} images downloaded.".format(dl_count))
+
 
 try:
     compute_argv(sys.argv)
