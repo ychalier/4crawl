@@ -118,6 +118,7 @@
     }
 
     #loading {
+      z-index: 99999;
       position: fixed;
       top: 0;
       left: 0;
@@ -175,7 +176,7 @@
       let xhttp = new XMLHttpRequest()
       xhttp.open("GET", url, true);
       xhttp.onreadystatechange = function() {
-        if (xhttp.readyState === 4 && xhttp.status === 200) {
+        if (xhttp.readyState === 4) {
           if (callback) callback(shuffle(JSON.parse(xhttp.response)));
         }
       }
@@ -241,6 +242,10 @@
           if (ready <= 0) {
             document.querySelector("body").style.overflow = "auto";
             document.querySelector("#loading").style.opacity = 0;
+            updatePlayStatus();
+            setTimeout(function() {
+              window.scrollTo(0, 0);
+            }, 1);
             setTimeout(function () {
               document.querySelector("#loading").style.display = "none";
             }, 1000);
@@ -265,9 +270,11 @@
           document.querySelector("#history").style.display = "flex";
           document.querySelector("body").style.overflow = "hidden";
         }
+        child.addEventListener("click", child.showHistory);
         child.setAttribute("src", array[i].file);
         child.setAttribute("allowFullScreen", "true");
         child.setAttribute("folder", folder);
+        child.setAttribute("preload", "auto");
         parent.appendChild(child);
       }
       parent = document.querySelector("#menu");
@@ -291,6 +298,18 @@
 
     }
 
+    function updatePlayStatus() {
+      let videos = document.querySelectorAll("video");
+      for (let i = 0; i < videos.length; i++) {
+        let rect = videos[i].getBoundingClientRect();
+        if (rect.top > 0 && rect.bottom < window.innerHeight) {
+          videos[i].play();
+        } else {
+          videos[i].pause();
+        }
+      }
+    }
+
     document.querySelector("#history").addEventListener("click", (event) => {
       event.target.style.display = "none";
       document.querySelector("body").style.overflow = "auto";
@@ -308,17 +327,7 @@
       }
     });
 
-    window.onscroll = function() {
-      let videos = document.querySelectorAll("video");
-      for (let i = 0; i < videos.length; i++) {
-        let rect = videos[i].getBoundingClientRect();
-        if (rect.top > 0 && rect.bottom < window.innerHeight) {
-          videos[i].play();
-        } else {
-          videos[i].pause();
-        }
-      }
-    }
+    window.onscroll = updatePlayStatus;
 
     window.onresize = function() {
       let medias = document.querySelectorAll("img, video");
